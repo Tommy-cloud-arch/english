@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>영어 통번역 연습</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="영어 통번역">
+<meta name="theme-color" content="#3ab795">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+:root {
+  --mint:      #9be7c4;
+  --mint-dark: #3ab795;
+  --blue:      #3b82f6;
+  --blue-lt:   #93c5fd;
+  --purple:    #8b5cf6;
+  --purple-lt: #c4b5fd;
+  --bg:        #f9fafb;
+  --fg:        #1f2937;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ────────────────────────────
+   Screen manager
+──────────────────────────── */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ────────────────────────────
+   Top bar
+──────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,.1);
+  min-height: 62px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.top-title {
+  flex: 1;
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-btn {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nav-btn:active { opacity: .7; }
+
+/* ────────────────────────────
+   HOME
+──────────────────────────── */
+.home-body {
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.tab-grid {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tab-card {
+  border: none;
+  border-radius: 26px;
+  padding: 46px 20px;
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  transition: transform .18s, box-shadow .18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.tab-card:active { transform: scale(.97); box-shadow: 0 3px 10px rgba(0,0,0,.14); }
+
+.tab-words     { background: linear-gradient(135deg, #3ab795 0%, #9be7c4 100%); }
+.tab-sentences { background: linear-gradient(135deg, #3b82f6 0%, #93c5fd 100%); }
+.tab-books     { background: linear-gradient(135deg, #8b5cf6 0%, #c4b5fd 100%); }
+
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.8);
+  z-index: 999;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.6rem;
+  font-weight: 600;
+  color: var(--mint-dark);
+}
+.loading-overlay.show { display: flex; }
+
+/* ────────────────────────────
+   LEARN
+──────────────────────────── */
+.learn-body {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Cards */
+.card {
+  width: 100%;
+  max-width: 900px;
+  background: white;
+  border-radius: 26px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
+  padding: 34px 28px 56px 28px; /* bottom padding for TTS button */
+  min-height: 22dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  word-break: keep-all;
+  line-height: 1.45;
+}
+
+#learnQuestion { font-size: 2.8rem; font-weight: 600; }
+#learnAnswer   { font-size: 2.4rem; }
+
+.answer-cover {
+  position: absolute;
+  inset: 0;
+  background: white;
+  border-radius: 26px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.2rem;
+  color: #9ca3af;
+  z-index: 10;
+}
+.answer-cover.hidden { display: none; }
+
+.tts-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  background: none;
+  border: none;
+  font-size: 3.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Progress */
+.progress-wrap {
+  width: 100%;
+  max-width: 900px;
+  text-align: center;
+}
+.progress-text {
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 8px;
+}
+input[type=range] {
+  width: 100%;
+  appearance: none;
+  height: 10px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--mint-dark);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* Nav row */
+.nav-row {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.arrow-btn {
+  background: white;
+  border: none;
+  border-radius: 18px;
+  padding: 20px 26px;
+  font-size: 3.8rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.arrow-btn:active { opacity: .7; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ctrl-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-size: 1.9rem;
+  cursor: pointer;
+  background: #e5e7eb;
+  color: var(--fg);
+  font-weight: 600;
+  transition: background .2s, color .2s;
+}
+.ctrl-btn.active { background: var(--mint-dark); color: white; }
+.ctrl-btn:active  { opacity: .75; }
+
+.icon-btn {
+  font-size: 2.8rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.show-answer-btn {
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
+  border: none;
+  border-radius: 22px;
+  background: var(--mint-dark);
+  color: white;
+  font-size: 2.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(58,183,149,.35);
+  transition: opacity .15s;
+}
+.show-answer-btn:active { opacity: .8; }
+
+/* ────────────────────────────
+   FAVORITE / SAVED lists
+──────────────────────────── */
+.card-list { padding: 20px; }
+
+.list-card {
+  background: white;
+  padding: 24px 54px 24px 24px;
+  border-radius: 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.12);
+  font-size: 2.2rem;
+  position: relative;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.list-card:active { transform: scale(.98); }
+
+.list-card-tag {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--mint-dark);
+  margin-bottom: 8px;
+}
+
+.list-card-del {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 2.6rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.empty-msg {
+  text-align: center;
+  font-size: 2.2rem;
+  color: #9ca3af;
+  padding: 60px 20px;
+}
+
+/* ────────────────────────────
+   Mobile scale
+──────────────────────────── */
+@media (max-width: 1024px) {
+  #learnQuestion { font-size: 3.4rem; }
+  #learnAnswer   { font-size: 3rem;   }
+  .answer-cover  { font-size: 2.8rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="loading-overlay">⏳ 불러오는 중...</div>
+
+
+<!-- ══════════════════════════════════════
+     HOME
+══════════════════════════════════════ -->
+<div id="screen-home" class="screen active">
+
+  <div class="top-bar">
+    <button class="nav-btn" id="goFavorite">📘 즐겨찾기</button>
+    <span class="top-title">🇺🇸 영어 통번역</span>
+    <button class="nav-btn" id="goSaved">🔖 저장</button>
+  </div>
+
+  <div class="home-body">
+    <div class="tab-grid">
+      <button class="tab-card tab-words"     data-tab="words">    📚 단어 Words</button>
+      <button class="tab-card tab-sentences" data-tab="sentences">💬 문장 Sentences</button>
+      <button class="tab-card tab-books"     data-tab="books">    📖 독해 Books</button>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════
+     LEARN
+══════════════════════════════════════ -->
+<div id="screen-learn" class="screen">
+
+  <div class="top-bar">
+    <span id="learnGoHome" style="font-size:2.8rem; cursor:pointer; flex-shrink:0; padding:4px 6px;">🏠</span>
+    <span id="learnTitle" class="top-title" style="font-size:2rem;">단어 — 1번</span>
+    <span style="width:44px;"></span>
+  </div>
+
+  <div class="learn-body">
+
+    <!-- Question card -->
+    <div class="card">
+      <div id="learnQuestion"></div>
+      <button class="tts-btn" id="ttsQ">🔊</button>
+    </div>
+
+    <!-- Answer card -->
+    <div class="card">
+      <div id="answerCover" class="answer-cover">통역하여 말해보세요 💭</div>
+      <div id="learnAnswer"></div>
+      <button class="tts-btn" id="ttsA">🔊</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div id="progressText" class="progress-text">1 / 1</div>
+      <input type="range" id="progressSlider" min="1" max="1" value="1">
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-row">
+      <button class="arrow-btn" id="learnPrev">←</button>
+
+      <div class="controls">
+        <span id="learnBookmark" class="icon-btn" title="즐겨찾기">📘</span>
+        <button id="learnSwitch"    class="ctrl-btn">KO ↔ EN</button>
+        <button id="alwaysShowBtn"  class="ctrl-btn">정답 항상 끄기</button>
+        <span id="learnSave" class="icon-btn" title="페이지 저장">🔖</span>
+      </div>
+
+      <button class="arrow-btn" id="learnNext">→</button>
+    </div>
+
+    <!-- Show / Hide answer -->
+    <button class="show-answer-btn" id="showAnswerBtn">정답 보기 / 숨기기</button>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     FAVORITE (read-only)
+══════════════════════════════════════ -->
+<div id="screen-favorite" class="screen">
+  <div class="top-bar">
+    <button class="nav-btn" onclick="showScreen('home')">🏠 홈</button>
+    <span class="top-title">📘 즐겨찾기</span>
+    <span style="width:70px;"></span>
+  </div>
+  <div class="card-list" id="favoriteList"></div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     SAVED (click → jump to Learn)
+══════════════════════════════════════ -->
+<div id="screen-saved" class="screen">
+  <div class="top-bar">
+    <button class="nav-btn" onclick="showScreen('home')">🏠 홈</button>
+    <span class="top-title">🔖 저장한 페이지</span>
+    <span style="width:70px;"></span>
+  </div>
+  <div class="card-list" id="savedList"></div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     SCRIPT
+══════════════════════════════════════ -->
+<script>
+// ── Config ──────────────────────────────────────
+const SHEET_ID  = '10UzPEi1eDwrYFYi0dPjUDrRSHkxW6Je4Kt3VhHgt1mY';
+const TAB_LABEL = { words: '📚 단어', sentences: '💬 문장', books: '📖 독해' };
+
+// ── App State ────────────────────────────────────
+let currentTab  = 'words';
+let sentences   = [];
+let currentIdx  = 0;
+let learnMode   = 'KR_TO_EN';   // 'KR_TO_EN' | 'EN_TO_KR'
+let alwaysShow  = false;
+
+let bookmarks   = JSON.parse(localStorage.getItem('eng_bookmarks')   || '{}');
+let savedPages  = JSON.parse(localStorage.getItem('eng_savedPages')  || '[]');
+
+const dataCache = {};   // tab name → parsed array
+
+// ── Screen Manager ───────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ── CSV Fetch & Parse ────────────────────────────
+async function fetchSheetData(tabName) {
+  if (dataCache[tabName]) return dataCache[tabName];
+
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const text = await res.text();
+  const rows = parseCSV(text).slice(1); // skip header row
+
+  const data = rows
+    .map(cols => ({
+      number:  unquote(cols[0]),
+      korean:  unquote(cols[1]),
+      english: unquote(cols[2])
+    }))
+    .filter(r => r.number && (r.korean || r.english));
+
+  dataCache[tabName] = data;
+  return data;
+}
+
+function unquote(s) {
+  return (s || '').replace(/^"|"$/g, '').trim();
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], col = '', inQ = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], nxt = text[i + 1];
+
+    if (inQ) {
+      if (c === '"' && nxt === '"') { col += '"'; i++; }
+      else if (c === '"') { inQ = false; }
+      else { col += c; }
+    } else {
+      if (c === '"')       { inQ = true; }
+      else if (c === ',')  { row.push(col); col = ''; }
+      else if (c === '\n' || (c === '\r' && nxt === '\n')) {
+        if (c === '\r') i++;
+        row.push(col); rows.push(row);
+        row = []; col = '';
+      } else { col += c; }
+    }
+  }
+  if (col || row.length) { row.push(col); rows.push(row); }
+  return rows;
+}
+
+// ── Load Tab ─────────────────────────────────────
+async function loadTab(tabName, targetIdx = 0) {
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('show');
+  currentTab = tabName;
+
+  try {
+    sentences  = await fetchSheetData(tabName);
+    currentIdx = (targetIdx >= 0 && targetIdx < sentences.length) ? targetIdx : 0;
+    showScreen('learn');
+    renderLearn();
+  } catch (e) {
+    alert('데이터를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.');
+    console.error(e);
+  } finally {
+    overlay.classList.remove('show');
+  }
+}
+
+// ── Render Learn Screen ───────────────────────────
+function renderLearn() {
+  const item = sentences[currentIdx];
+  if (!item) return;
+
+  // Header title
+  document.getElementById('learnTitle').textContent =
+    `${TAB_LABEL[currentTab]} — ${item.number}번  [${currentIdx + 1} / ${sentences.length}]`;
+
+  // Q & A text
+  const q = learnMode === 'KR_TO_EN' ? item.korean  : item.english;
+  const a = learnMode === 'KR_TO_EN' ? item.english : item.korean;
+  document.getElementById('learnQuestion').textContent = q;
+  document.getElementById('learnAnswer').textContent   = a;
+
+  // Answer cover
+  const cover = document.getElementById('answerCover');
+  alwaysShow ? cover.classList.add('hidden') : cover.classList.remove('hidden');
+
+  // Progress
+  const slider = document.getElementById('progressSlider');
+  slider.max   = sentences.length;
+  slider.value = currentIdx + 1;
+  document.getElementById('progressText').textContent = `${currentIdx + 1} / ${sentences.length}`;
+
+  // Bookmark icon
+  const bKey  = `${currentTab}:${item.number}`;
+  document.getElementById('learnBookmark').textContent = bookmarks[bKey] ? '📕' : '📘';
+
+  // Save icon
+  const isSaved = savedPages.some(
+    p => p.tab === currentTab && String(p.number) === String(item.number)
+  );
+  document.getElementById('learnSave').textContent = isSaved ? '📍' : '🔖';
+
+  // Always-show button
+  const asBtn = document.getElementById('alwaysShowBtn');
+  asBtn.textContent = alwaysShow ? '정답 항상 켜기' : '정답 항상 끄기';
+  asBtn.classList.toggle('active', alwaysShow);
+}
+
+// ── Learn Controls ────────────────────────────────
+document.getElementById('learnGoHome').onclick = () => showScreen('home');
+
+document.getElementById('learnPrev').onclick = () => {
+  if (currentIdx > 0) { currentIdx--; renderLearn(); }
+};
+document.getElementById('learnNext').onclick = () => {
+  if (currentIdx < sentences.length - 1) { currentIdx++; renderLearn(); }
+};
+
+document.getElementById('learnSwitch').onclick = () => {
+  learnMode = learnMode === 'KR_TO_EN' ? 'EN_TO_KR' : 'KR_TO_EN';
+  renderLearn();
+};
+
+document.getElementById('alwaysShowBtn').onclick = () => {
+  alwaysShow = !alwaysShow;
+  renderLearn();
+};
+
+document.getElementById('showAnswerBtn').onclick = () => {
+  document.getElementById('answerCover').classList.toggle('hidden');
+};
+
+document.getElementById('progressSlider').addEventListener('input', e => {
+  const idx = Number(e.target.value) - 1;
+  if (idx >= 0 && idx < sentences.length) { currentIdx = idx; renderLearn(); }
+});
+
+// ── TTS ───────────────────────────────────────────
+function speak(text, lang) {
+  if (!text || !window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  speechSynthesis.speak(u);
+}
+
+document.getElementById('ttsQ').onclick = () =>
+  speak(document.getElementById('learnQuestion').textContent,
+        learnMode === 'KR_TO_EN' ? 'ko-KR' : 'en-US');
+
+document.getElementById('ttsA').onclick = () =>
+  speak(document.getElementById('learnAnswer').textContent,
+        learnMode === 'KR_TO_EN' ? 'en-US' : 'ko-KR');
+
+// ── Bookmark ──────────────────────────────────────
+document.getElementById('learnBookmark').onclick = () => {
+  const item = sentences[currentIdx];
+  const key  = `${currentTab}:${item.number}`;
+  if (bookmarks[key]) delete bookmarks[key];
+  else bookmarks[key] = { tab: currentTab, ...item };
+  localStorage.setItem('eng_bookmarks', JSON.stringify(bookmarks));
+  renderLearn();
+};
+
+// ── Save Page ─────────────────────────────────────
+document.getElementById('learnSave').onclick = () => {
+  const item = sentences[currentIdx];
+  const idx  = savedPages.findIndex(
+    p => p.tab === currentTab && String(p.number) === String(item.number)
+  );
+  if (idx >= 0) savedPages.splice(idx, 1);
+  else savedPages.push({ tab: currentTab, ...item });
+  localStorage.setItem('eng_savedPages', JSON.stringify(savedPages));
+  renderLearn();
+};
+
+// ── Home: Tab buttons ─────────────────────────────
+document.querySelectorAll('.tab-card').forEach(btn =>
+  btn.addEventListener('click', () => loadTab(btn.dataset.tab))
+);
+
+// ── Favorite Screen ───────────────────────────────
+document.getElementById('goFavorite').onclick = () => {
+  renderFavoriteList();
+  showScreen('favorite');
+};
+
+function renderFavoriteList() {
+  const box   = document.getElementById('favoriteList');
+  const items = Object.values(bookmarks);
+  box.innerHTML = '';
+
+  if (!items.length) {
+    box.innerHTML = '<div class="empty-msg">즐겨찾기가 없습니다 📘</div>';
+    return;
+  }
+
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'list-card';
+    card.innerHTML = `
+      <div class="list-card-tag">[${TAB_LABEL[item.tab] || item.tab}] ${item.number}번</div>
+      <div style="margin-bottom:6px;">${item.korean}</div>
+      <div style="opacity:.65;">${item.english}</div>
+    `;
+
+    const del = document.createElement('span');
+    del.className = 'list-card-del';
+    del.textContent = '❌';
+    del.onclick = e => {
+      e.stopPropagation();
+      delete bookmarks[`${item.tab}:${item.number}`];
+      localStorage.setItem('eng_bookmarks', JSON.stringify(bookmarks));
+      card.remove();
+    };
+    card.appendChild(del);
+    box.appendChild(card);
+  });
+}
+
+// ── Saved Screen ──────────────────────────────────
+document.getElementById('goSaved').onclick = () => {
+  renderSavedList();
+  showScreen('saved');
+};
+
+function renderSavedList() {
+  const box = document.getElementById('savedList');
+  box.innerHTML = '';
+
+  if (!savedPages.length) {
+    box.innerHTML = '<div class="empty-msg">저장된 페이지가 없습니다 🔖<br><span style="font-size:1.8rem; margin-top:10px; display:block;">학습 중 🔖 버튼으로 저장하세요</span></div>';
+    return;
+  }
+
+  savedPages.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'list-card';
+    card.innerHTML = `
+      <div class="list-card-tag">[${TAB_LABEL[item.tab] || item.tab}] ${item.number}번</div>
+      <div>${item.korean}</div>
+    `;
+    card.onclick = () => {
+      fetchSheetData(item.tab).then(data => {
+        const idx = data.findIndex(s => String(s.number) === String(item.number));
+        loadTab(item.tab, idx >= 0 ? idx : 0);
+      });
+    };
+
+    const del = document.createElement('span');
+    del.className = 'list-card-del';
+    del.textContent = '❌';
+    del.onclick = e => {
+      e.stopPropagation();
+      const i = savedPages.findIndex(
+        p => p.tab === item.tab && String(p.number) === String(item.number)
+      );
+      if (i >= 0) savedPages.splice(i, 1);
+      localStorage.setItem('eng_savedPages', JSON.stringify(savedPages));
+      card.remove();
+    };
+    card.appendChild(del);
+    box.appendChild(card);
+  });
+}
+
+// ── Service Worker ────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('./sw.js').catch(console.error)
+  );
+}
+</script>
+</body>
+</html>
