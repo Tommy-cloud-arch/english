@@ -1058,19 +1058,35 @@ $('learnSaveIcon').onclick = () => {
 /* ── Sheet Tab Discovery ── */
 async function fetchAllSheetTabs() {
   if ('_all' in tabMetaCache) return tabMetaCache._all;
-  if (!SHEETS_API_KEY) { tabMetaCache._all = null; return null; }
+
+  // API Key가 있으면 Sheets API v4 사용
+  if (SHEETS_API_KEY) {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${SHEETS_API_KEY}&fields=sheets.properties.title`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      tabMetaCache._all = json.sheets.map(s => s.properties.title);
+      return tabMetaCache._all;
+    } catch(e) {
+      console.warn('시트 탭 조회 실패 (v4):', e);
+    }
+  }
+
+  // API Key 없이 Sheets API v3 (공개 스프레드시트 전용)
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${SHEETS_API_KEY}&fields=sheets.properties.title`;
+    const url = `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    tabMetaCache._all = json.sheets.map(s => s.properties.title);
+    tabMetaCache._all = (json.feed.entry || []).map(e => e.title.$t);
     return tabMetaCache._all;
   } catch(e) {
-    console.warn('시트 탭 조회 실패:', e);
-    tabMetaCache._all = null;
-    return null;
+    console.warn('시트 탭 조회 실패 (v3):', e);
   }
+
+  tabMetaCache._all = null;
+  return null;
 }
 
 /* ── Sheet Picker ── */
