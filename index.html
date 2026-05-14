@@ -883,12 +883,7 @@ const SHEET_ID  = '10UzPEi1eDwrYFYi0dPjUDrRSHkxW6Je4Kt3VhHgt1mY';
 const TAB_LABEL = { words:'📚 단어', sentences:'💬 문장', books:'📖 독해' };
 const COUNT_ID  = { words:'wordsCount', sentences:'sentencesCount', books:'booksCount' };
 
-// 시트 자동 탐색 설정
-// SHEETS_API_KEY: Google Cloud Console에서 발급한 API Key (선택사항)
-//   - 없으면 아래 BOOKS_TABS / SENTENCES_TABS 배열을 직접 입력하세요
-// BOOKS_TABS: "책"이 포함된 탭 이름 목록 (API Key 없을 때 사용)
-// SENTENCES_TABS: "문장"이 포함된 탭 이름 목록 (API Key 없을 때 사용)
-const SHEETS_API_KEY  = '';
+const SHEETS_API_KEY  = 'AIzaSyC-OVbR7yvIm0KoY-8zSOt6ENAyxDH4_5k';
 const BOOKS_TABS      = [];
 const SENTENCES_TABS  = [];
 const TAB_KEYWORDS    = { books: '책', sentences: '문장' };
@@ -1058,35 +1053,19 @@ $('learnSaveIcon').onclick = () => {
 /* ── Sheet Tab Discovery ── */
 async function fetchAllSheetTabs() {
   if ('_all' in tabMetaCache) return tabMetaCache._all;
-
-  // API Key가 있으면 Sheets API v4 사용
-  if (SHEETS_API_KEY) {
-    try {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${SHEETS_API_KEY}&fields=sheets.properties.title`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      tabMetaCache._all = json.sheets.map(s => s.properties.title);
-      return tabMetaCache._all;
-    } catch(e) {
-      console.warn('시트 탭 조회 실패 (v4):', e);
-    }
-  }
-
-  // API Key 없이 Sheets API v3 (공개 스프레드시트 전용)
   try {
-    const url = `https://spreadsheets.google.com/feeds/worksheets/${SHEET_ID}/public/basic?alt=json`;
+    const fields = 'sheets(properties(title))';
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SHEET_ID)}?fields=${encodeURIComponent(fields)}&key=${encodeURIComponent(SHEETS_API_KEY)}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    tabMetaCache._all = (json.feed.entry || []).map(e => e.title.$t);
+    const data = await res.json().catch(() => null);
+    if (!res.ok || data?.error) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    tabMetaCache._all = (data.sheets || []).map(s => s?.properties?.title).filter(Boolean);
     return tabMetaCache._all;
   } catch(e) {
-    console.warn('시트 탭 조회 실패 (v3):', e);
+    console.warn('시트 탭 조회 실패:', e);
+    tabMetaCache._all = null;
+    return null;
   }
-
-  tabMetaCache._all = null;
-  return null;
 }
 
 /* ── Sheet Picker ── */
